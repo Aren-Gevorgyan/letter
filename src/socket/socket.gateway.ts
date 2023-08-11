@@ -8,7 +8,11 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
-@WebSocketGateway()
+@WebSocketGateway({
+  cors: {
+    origin: ['http://localhost:3000'],
+  },
+})
 export class MessengerGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
@@ -16,7 +20,7 @@ export class MessengerGateway
 
   private connectedClients: Map<string, Socket> = new Map();
 
-  afterInit(server: Server) {
+  afterInit() {
     console.log('WebSocket gateway initialized');
   }
 
@@ -30,7 +34,7 @@ export class MessengerGateway
     this.connectedClients.delete(client.id);
   }
 
-  @SubscribeMessage('message')
+  @SubscribeMessage('newMessage')
   handleMessage(client: Socket, message: string) {
     console.log(`Received message from ${client.id}: ${message}`);
     this.server.emit('message', message);
