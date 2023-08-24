@@ -1,4 +1,3 @@
-import { UseGuards } from '@nestjs/common';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -7,24 +6,27 @@ import {
   OnGatewayInit,
   SubscribeMessage,
 } from '@nestjs/websockets';
+import * as firebase from 'firebase-admin';
 import { Server, Socket } from 'socket.io';
-import { FirebaseAuthGuard } from 'src/firebase/firebase-auth.guard';
-import { FirebaseAuthStrategy } from 'src/firebase/firebase-auth.strategy';
 import { SocketService } from './socket.service';
+import { FirebaseService } from 'src/firebase/firebase-auth';
+import { MySocket } from 'src/common/interface';
 
 @WebSocketGateway({
   cors: {
     origin: ['http://localhost:3000'],
   },
 })
-@UseGuards(FirebaseAuthGuard)
 export class MessengerGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
+  private auth: firebase.auth.Auth;
   constructor(
-    private readonly firebaseAuthStrategy: FirebaseAuthStrategy,
     private readonly socketService: SocketService,
-  ) {}
+    private firebaseApp: FirebaseService,
+  ) {
+    this.auth = firebaseApp.getAuth();
+  }
   @WebSocketServer() server: Server;
 
   private connectedClients: Map<string, Socket> = new Map();
@@ -33,30 +35,29 @@ export class MessengerGateway
     console.log('WebSocket gateway initialized');
   }
 
-  async handleConnection(client: any, ...args: any[]) {
+  async handleConnection(client: MySocket) {
     const authHeader = client.handshake.headers['authorization'];
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const idToken = authHeader.split(' ')[1];
 
       try {
-        const user = await this.firebaseAuthStrategy.defaultApp
-          .auth()
-          .verifyIdToken(idToken, true);
-        console.log(user, 'user');
-
+        const user = await this.auth.verifyIdToken(idToken, true);
+        client.user = user;
         this.connectedClients.set(client.id, client);
-
-        // Proceed with socket connection
-        // console.log('User authenticated:', decodedToken.uid);
       } catch (error) {
         // Reject socket connection
         console.error('Authentication failed:', error.message);
+        client.emit('connectionError', {
+          message: 'Authentication token not provided',
+        });
         client.disconnect(true);
       }
     } else {
       // Reject socket connection
-      console.error('Missing or invalid authentication header');
+      client.emit('connectionError', {
+        message: 'Authentication token not provided',
+      });
       client.disconnect(true);
     }
   }
@@ -67,11 +68,11 @@ export class MessengerGateway
   }
 
   @SubscribeMessage('newMessage')
-  handleMessage(client: Socket, message: string) {
+  handleMessage(client: MySocket, message: string) {
     console.log(`Received message from ${client.id}: ${message}`);
     this.socketService.create({
       text: message,
-      writerId: 'sdsd454s5ds5d45s',
+      writerId: client?.user?.user_id,
     });
     this.server.emit('message', message);
   }

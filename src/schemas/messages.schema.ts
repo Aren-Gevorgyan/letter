@@ -9,7 +9,7 @@ export class Messages {
   text: string;
 
   @Prop()
-  writerID: string;
+  writerId: string;
 }
 
 export const MessagesSchema = SchemaFactory.createForClass(Messages);
