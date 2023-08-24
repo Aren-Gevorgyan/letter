@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { MessengerGateway } from './socket.gateway';
-import { FirebaseAuthStrategy } from 'src/firebase/firebase-auth.strategy';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Messages, MessagesSchema } from 'src/schemas/messages.schema';
 import { SocketService } from './socket.service';
 import { ConfigModule } from '@nestjs/config';
+import { FirebaseService } from 'src/firebase/firebase-auth';
 
 @Module({
   imports: [
@@ -14,6 +14,6 @@ import { ConfigModule } from '@nestjs/config';
     ]),
   ],
   controllers: [],
-  providers: [MessengerGateway, FirebaseAuthStrategy, SocketService],
+  providers: [MessengerGateway, SocketService, FirebaseService],
 })
 export class SocketModule {}
